@@ -285,7 +285,7 @@ test_expect_success 'iteration of dir w/ complex structure w/o symlinks' '
 '
 
 test_expect_success POSIXPERM,SANITY \
-'dir_iterator_advance() should fail on root dir w/o perms' '
+'dir_iterator_begin() should fail on root dir w/o perms' '
 
 	mkdir -p dir12/a &&
 	>dir12/a/b &&
@@ -293,7 +293,7 @@ test_expect_success POSIXPERM,SANITY \
 
 
 	cat >expected-no-permissions-out <<-EOF &&
-	dir_iterator_advance failure
+	dir_iterator_begin failure: ESOMETHINGELSE
 	EOF
 
 	test_must_fail test-tool dir-iterator ./dir12 >actual-out &&

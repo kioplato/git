@@ -7,8 +7,7 @@ struct dir_iterator_level {
 	DIR *dir;
 
 	/*
-	 * The length of the directory part of path at this level
-	 * (including a trailing '/'):
+	 * The length of the directory part of path at this level.
 	 */
 	size_t prefix_len;
 };
@@ -34,8 +33,9 @@ struct dir_iterator_int {
 	size_t levels_alloc;
 
 	/*
-	 * A stack of levels. levels[0] is the uppermost directory
-	 * that will be included in this iteration.
+	 * A stack of levels. levels[0] is the root directory.
+	 * It won't be included in the iteration, but iteration will happen
+	 * inside it's subdirectories.
 	 */
 	struct dir_iterator_level *levels;
 
@@ -45,34 +45,53 @@ struct dir_iterator_int {
 
 /*
  * Push a level in the iter stack and initialize it with information from
- * the directory pointed by iter->base->path. It is assumed that this
- * strbuf points to a valid directory path. Return 0 on success and -1
- * otherwise, setting errno accordingly and leaving the stack unchanged.
+ * the directory pointed by iter->base->path. Don't open the directory.
+ *
+ * Return 1 on success.
+ * Return 0 when `iter->base->path` isn't a directory.
  */
 static int push_level(struct dir_iterator_int *iter)
 {
 	struct dir_iterator_level *level;
 
+	if (!S_ISDIR(iter->base.st.st_mode)) return 0;
+
 	ALLOC_GROW(iter->levels, iter->levels_nr + 1, iter->levels_alloc);
 	level = &iter->levels[iter->levels_nr++];
 
-	if (!is_dir_sep(iter->base.path.buf[iter->base.path.len - 1]))
-		strbuf_addch(&iter->base.path, '/');
+	level->dir = NULL;
+
 	level->prefix_len = iter->base.path.len;
 
-	level->dir = opendir(iter->base.path.buf);
-	if (!level->dir) {
-		int saved_errno = errno;
-		if (errno != ENOENT) {
-			warning_errno("error opening directory '%s'",
-				      iter->base.path.buf);
-		}
-		iter->levels_nr--;
-		errno = saved_errno;
-		return -1;
-	}
+	return 1;
+}
 
-	return 0;
+/*
+ * Activate most recent pushed level.
+ *
+ * Return 1 on success.
+ * Return -1 on failure when errno == ENOENT, leaving the stack unchanged.
+ * Return -2 on failure when errno != ENOENT, leaving the stack unchanged.
+ */
+static int activate_level(struct dir_iterator_int *iter)
+{
+	struct dir_iterator_level *level = &iter->levels[iter->levels_nr - 1];
+	int saved_errno;
+
+	if (level->dir)
+		return 1;
+
+	if ((level->dir = opendir(iter->base.path.buf)) != NULL)
+		return 1;
+
+	saved_errno = errno;
+	if (errno != ENOENT) {
+		warning_errno("error opening directory '%s'", iter->base.path.buf);
+		errno = saved_errno;
+		return -2;
+	}
+	errno = saved_errno;
+	return -1;
 }
 
 /*
@@ -81,12 +100,10 @@ static int push_level(struct dir_iterator_int *iter)
  */
 static int pop_level(struct dir_iterator_int *iter)
 {
-	struct dir_iterator_level *level =
-		&iter->levels[iter->levels_nr - 1];
+	struct dir_iterator_level *level = &iter->levels[iter->levels_nr - 1];
 
 	if (level->dir && closedir(level->dir))
-		warning_errno("error closing directory '%s'",
-			      iter->base.path.buf);
+		warning_errno("error closing directory '%s'", iter->base.path.buf);
 	level->dir = NULL;
 
 	return --iter->levels_nr;
@@ -94,82 +111,121 @@ static int pop_level(struct dir_iterator_int *iter)
 
 /*
  * Populate iter->base with the necessary information on the next iteration
- * entry, represented by the given dirent de. Return 0 on success and -1
- * otherwise, setting errno accordingly.
+ * entry, represented by the given relative path to the lowermost directory,
+ * d_name.
+ *
+ * Return values:
+ * 1 on successful exposure of the provided entry.
+ * -1 on failed exposure because entry does not exist.
+ * -2 on failed exposure because of error other than ENOENT.
  */
-static int prepare_next_entry_data(struct dir_iterator_int *iter,
-				   struct dirent *de)
+static int expose_entry(struct dir_iterator_int *iter, char *d_name)
 {
-	int err, saved_errno;
+	int stat_err;
 
-	strbuf_addstr(&iter->base.path, de->d_name);
-	/*
-	 * We have to reset these because the path strbuf might have
-	 * been realloc()ed at the previous strbuf_addstr().
-	 */
-	iter->base.relative_path = iter->base.path.buf +
-				   iter->levels[0].prefix_len;
-	iter->base.basename = iter->base.path.buf +
-			      iter->levels[iter->levels_nr - 1].prefix_len;
+	strbuf_addch(&iter->base.path, '/');
+	strbuf_addstr(&iter->base.path, d_name);
 
 	if (iter->flags & DIR_ITERATOR_FOLLOW_SYMLINKS)
-		err = stat(iter->base.path.buf, &iter->base.st);
+		stat_err = stat(iter->base.path.buf, &iter->base.st);
 	else
-		err = lstat(iter->base.path.buf, &iter->base.st);
+		stat_err = lstat(iter->base.path.buf, &iter->base.st);
 
-	saved_errno = errno;
-	if (err && errno != ENOENT)
+	if (stat_err && errno != ENOENT) {
 		warning_errno("failed to stat '%s'", iter->base.path.buf);
+		return -2;  // Stat failed not with ENOENT.
+	} else if (stat_err && errno == ENOENT)
+		return -1;  // Stat failed with ENOENT.
 
-	errno = saved_errno;
-	return err;
+	/*
+	 * We have to reset relative path and basename because the path strbuf
+	 * might have been realloc()'ed at the previous strbuf_addstr().
+	 */
+
+	iter->base.relative_path =
+		iter->base.path.buf + iter->levels[0].prefix_len + 1;
+	iter->base.basename =
+		iter->base.path.buf + iter->levels[iter->levels_nr - 1].prefix_len + 1;
+
+	return 1;
 }
 
 int dir_iterator_advance(struct dir_iterator *dir_iterator)
 {
-	struct dir_iterator_int *iter =
-		(struct dir_iterator_int *)dir_iterator;
+	struct dir_iterator_int *iter = (struct dir_iterator_int *)dir_iterator;
+	struct dir_iterator_level *level = &iter->levels[iter->levels_nr - 1];
 
-	if (S_ISDIR(iter->base.st.st_mode) && push_level(iter)) {
-		if (errno != ENOENT && iter->flags & DIR_ITERATOR_PEDANTIC)
-			goto error_out;
-		if (iter->levels_nr == 0)
-			goto error_out;
+	struct dirent *dir_entry = NULL;
+
+	int expose_err, activate_err;
+
+	/* For shorter code width-wise, more readable */
+	unsigned int PEDANTIC = iter->flags & DIR_ITERATOR_PEDANTIC;
+
+	/*
+	 * Attempt to open the directory of the last level if not opened yet.
+	 *
+	 * Remember that we ignore ENOENT errors so that the user of this API
+	 * can remove entries between calls to `dir_iterator_advance()`.
+	 * We care for errors other than ENOENT only when PEDANTIC is enabled.
+	 */
+
+	activate_err = activate_level(iter);
+
+	if (activate_err == -2 && PEDANTIC)
+		goto error_out;
+	else if (activate_err == -2 || activate_err == -1) {
+		/*
+		 * We activate the root level at `dir_iterator_begin()`.
+		 * Therefore, there isn't any case to run out of levels.
+		 */
+
+		--iter->levels_nr;
+
+		return dir_iterator_advance(dir_iterator);
 	}
 
-	/* Loop until we find an entry that we can give back to the caller. */
-	while (1) {
-		struct dirent *de;
-		struct dir_iterator_level *level =
-			&iter->levels[iter->levels_nr - 1];
+	strbuf_setlen(&iter->base.path, level->prefix_len);
 
-		strbuf_setlen(&iter->base.path, level->prefix_len);
-		errno = 0;
-		de = readdir(level->dir);
+	errno = 0;
+	dir_entry = readdir(level->dir);
 
-		if (!de) {
-			if (errno) {
-				warning_errno("error reading directory '%s'",
-					      iter->base.path.buf);
-				if (iter->flags & DIR_ITERATOR_PEDANTIC)
-					goto error_out;
-			} else if (pop_level(iter) == 0) {
+	if (dir_entry == NULL) {
+		if (errno) {
+			warning_errno("errno reading dir '%s'", iter->base.path.buf);
+			if (iter->flags & DIR_ITERATOR_PEDANTIC) goto error_out;
+			return dir_iterator_advance(dir_iterator);
+		} else {
+			/*
+			 * Current directory has been iterated through.
+			 */
+
+			if (pop_level(iter) == 0)
 				return dir_iterator_abort(dir_iterator);
-			}
-			continue;
+
+			return dir_iterator_advance(dir_iterator);
 		}
-
-		if (is_dot_or_dotdot(de->d_name))
-			continue;
-
-		if (prepare_next_entry_data(iter, de)) {
-			if (errno != ENOENT && iter->flags & DIR_ITERATOR_PEDANTIC)
-				goto error_out;
-			continue;
-		}
-
-		return ITER_OK;
 	}
+
+	if (is_dot_or_dotdot(dir_entry->d_name))
+		return dir_iterator_advance(dir_iterator);
+
+	/*
+	 * Successfully read entry from current directory level.
+	 */
+
+	expose_err = expose_entry(iter, dir_entry->d_name);
+
+	if (expose_err == -2 && PEDANTIC)
+		goto error_out;
+
+	if (expose_err == 1)
+		push_level(iter);
+
+	if (expose_err == -1)
+		return dir_iterator_advance(dir_iterator);
+
+	return ITER_OK;
 
 error_out:
 	dir_iterator_abort(dir_iterator);
@@ -207,6 +263,7 @@ struct dir_iterator *dir_iterator_begin(const char *path, unsigned int flags)
 
 	strbuf_init(&iter->base.path, PATH_MAX);
 	strbuf_addstr(&iter->base.path, path);
+	strbuf_trim_trailing_dir_sep(&iter->base.path);
 
 	ALLOC_GROW(iter->levels, 10, iter->levels_alloc);
 	iter->levels_nr = 0;
@@ -223,6 +280,16 @@ struct dir_iterator *dir_iterator_begin(const char *path, unsigned int flags)
 
 	if (!S_ISDIR(iter->base.st.st_mode)) {
 		saved_errno = ENOTDIR;
+		goto error_out;
+	}
+
+	if (push_level(iter) != 1) {
+		saved_errno = ENOTDIR;
+		goto error_out;
+	}
+
+	if (activate_level(iter) != 1) {
+		saved_errno = errno;
 		goto error_out;
 	}
 
