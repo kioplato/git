@@ -861,7 +861,7 @@ test_expect_success POSIXPERM,SANITY \
 
 
 	cat >expected-no-permissions-out <<-EOF &&
-	dir_iterator_begin failure: ESOMETHINGELSE
+	dir_iterator_begin failure: EACCES
 	EOF
 
 	test_must_fail test-tool dir-iterator ./dir12 >actual-out &&

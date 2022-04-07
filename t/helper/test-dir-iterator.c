@@ -7,9 +7,11 @@
 static const char *error_name(int error_number)
 {
 	switch (error_number) {
-	case ENOENT: return "ENOENT";
-	case ENOTDIR: return "ENOTDIR";
-	default: return "ESOMETHINGELSE";
+		case ENOENT: return "ENOENT";
+		case ENOTDIR: return "ENOTDIR";
+		case EACCES: return "EACCES";
+
+		default: return "ESOMETHINGELSE";
 	}
 }
 
