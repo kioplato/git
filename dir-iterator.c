@@ -133,9 +133,16 @@ static int expose_entry(struct dir_iterator_int *iter, char *d_name, char *dir_s
 {
 	int stat_err;
 	unsigned int DIRS_BEFORE = iter->flags & DIR_ITERATOR_DIRS_BEFORE;
+	unsigned int DIRS_AFTER = iter->flags & DIR_ITERATOR_DIRS_AFTER;
 
 	strbuf_addch(&iter->base.path, '/');
 	strbuf_addstr(&iter->base.path, d_name);
+
+	/*
+	 * We've got to check whether or not this is a directory.
+	 * We need to perform this check since the user could've requested
+	 * to ignore directory entries.
+	 */
 
 	if (iter->flags & DIR_ITERATOR_FOLLOW_SYMLINKS)
 		stat_err = stat(iter->base.path.buf, &iter->base.st);
@@ -158,6 +165,9 @@ static int expose_entry(struct dir_iterator_int *iter, char *d_name, char *dir_s
 	if (S_ISDIR(iter->base.st.st_mode)) {
 		if (!DIRS_BEFORE && !strcmp(dir_state, "before"))
 			return FAIL_IGN_DIRS;
+
+		if (!DIRS_AFTER && !strcmp(dir_state, "after"))
+			return FAIL_IGN_DIRS;
 	}
 
 	/*
@@ -171,6 +181,36 @@ static int expose_entry(struct dir_iterator_int *iter, char *d_name, char *dir_s
 		iter->base.path.buf + iter->levels[iter->levels_nr - 1].prefix_len + 1;
 
 	return OK;
+}
+
+/*
+ * Get the basename of the current directory.
+ *
+ * Using iter->base.path.buf, find the current dir basename.
+ */
+static char *current_dir_basename(struct dir_iterator_int *iter)
+{
+	char *start = strrchr(iter->base.path.buf, '/');
+	char *basename = NULL;
+
+	if (!start) {
+		/*
+		 * dir-iterator's implementation searches for '/' characters to
+		 * figure out the "active" directory part. Therefore, in this
+		 * case, the current path is the current directory part.
+		 */
+
+		start = iter->base.path.buf;
+	} else {
+		start += 1;  /* Skip '/' character */
+	}
+
+	if (!(basename = calloc(1, strlen(start) + 1)))
+		die_errno("calloc");
+
+	memcpy(basename, start, strlen(start));
+
+	return basename;
 }
 
 int dir_iterator_advance(struct dir_iterator *dir_iterator)
@@ -200,9 +240,28 @@ int dir_iterator_advance(struct dir_iterator *dir_iterator)
 		 * Therefore, there isn't any case to run out of levels.
 		 */
 
+		/*
+		 * We need to make sure, in case DIRS_AFTER is enabled, to
+		 * expose the entry in order to be consistent with what
+		 * DIRS_BEFORE exposes in case of failed `opendir()` call.
+		 */
+
+		char *d_name = current_dir_basename(iter);
+
 		--iter->levels_nr;
 
-		return dir_iterator_advance(dir_iterator);
+		level = &iter->levels[iter->levels_nr - 1];
+		strbuf_setlen(&iter->base.path, level->prefix_len);
+
+		expose_err = expose_entry(iter, d_name, "after");
+		free(d_name);
+
+		if (expose_err == FAIL_NOT_ENOENT && PEDANTIC)
+			goto error_out;
+		else if (expose_err != OK)
+			return dir_iterator_advance(dir_iterator);
+		else
+			return ITER_OK;
 	}
 
 	strbuf_setlen(&iter->base.path, level->prefix_len);
@@ -220,12 +279,40 @@ int dir_iterator_advance(struct dir_iterator *dir_iterator)
 		} else {
 			/*
 			 * Current directory has been iterated through.
+			 * We need to check if we need to expose current dir
+			 * because of DIRS_AFTER flag.
+			 */
+
+			char* d_name = current_dir_basename(iter);
+
+			/*
+			 * We don't care to expose the root directory.
+			 * Users of this API know when iteration starts on root
+			 * directory - they call `dir_iterator_begin()` - and
+			 * when ITER_DONE is returned they know when it's over.
+			 */
+
+			/*
+			 * Call to `pop_level()` needs to preceed call to
+			 * `expose_entry()` because `expose_entry()` appends to
+			 * current `iter->base` and we need to set it up.
 			 */
 
 			if (pop_level(iter) == 0)
 				return dir_iterator_abort(dir_iterator);
 
-			return dir_iterator_advance(dir_iterator);
+			level = &iter->levels[iter->levels_nr - 1];
+			strbuf_setlen(&iter->base.path, level->prefix_len);
+
+			expose_err = expose_entry(iter, d_name, "after");
+			free(d_name);
+
+			if (expose_err == FAIL_NOT_ENOENT && PEDANTIC)
+				goto error_out;
+			else if (expose_err != OK)
+				return dir_iterator_advance(dir_iterator);
+			else
+				return ITER_OK;
 		}
 	}
 

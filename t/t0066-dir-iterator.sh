@@ -25,6 +25,22 @@ test_expect_success 'dirs-before of dir with a file' '
 	test-tool dir-iterator --dirs-before ./dir1 >actual-out &&
 	test_cmp expected-out actual-out
 '
+test_expect_success 'dirs-after of dir with a file' '
+	cat >expected-out <<-EOF &&
+	[f] (a) [a] ./dir1/a
+	EOF
+
+	test-tool dir-iterator --dirs-after ./dir1 >actual-out &&
+	test_cmp expected-out actual-out
+'
+test_expect_success 'dirs-before/dirs-after of dir with a file' '
+	cat >expected-out <<-EOF &&
+	[f] (a) [a] ./dir1/a
+	EOF
+
+	test-tool dir-iterator --dirs-before --dirs-after ./dir1 >actual-out &&
+	test_cmp expected-out actual-out
+'
 
 test_expect_success 'setup -- dir with a single dir' '
 	mkdir -p dir2/a
@@ -42,6 +58,23 @@ test_expect_success 'dirs-before of dir with a single dir' '
 	EOF
 
 	test-tool dir-iterator --dirs-before ./dir2 >actual-out &&
+	test_cmp expected-out actual-out
+'
+test_expect_success 'dirs-after of dir with a single dir' '
+	cat >expected-out <<-EOF &&
+	[d] (a) [a] ./dir2/a
+	EOF
+
+	test-tool dir-iterator --dirs-after ./dir2 >actual-out &&
+	test_cmp expected-out actual-out
+'
+test_expect_success 'dirs-before/dirs-after of dir with a single dir' '
+	cat >expected-out <<-EOF &&
+	[d] (a) [a] ./dir2/a
+	[d] (a) [a] ./dir2/a
+	EOF
+
+	test-tool dir-iterator --dirs-before --dirs-after ./dir2 >actual-out &&
 	test_cmp expected-out actual-out
 '
 
@@ -97,6 +130,62 @@ test_expect_success POSIXPERM,SANITY 'pedantic dirs-before of dir w/ dir w/o per
 
 	chmod 755 dir3/a
 '
+test_expect_success POSIXPERM,SANITY 'dirs-after of dir w/ dir w/o perms' '
+	cat >expected-out <<-EOF &&
+	[d] (a) [a] ./dir3/a
+	EOF
+
+	chmod 0 dir3/a &&
+
+	test-tool dir-iterator --dirs-after ./dir3/ >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir3/a
+'
+test_expect_success POSIXPERM,SANITY 'pedantic dirs-after of dir w/ dir w/o perms' '
+	cat >expected-out <<-EOF &&
+	dir_iterator_advance failure: EACCES
+	EOF
+
+	chmod 0 dir3/a &&
+
+	test_must_fail test-tool dir-iterator --dirs-after \
+		--pedantic ./dir3/ >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir3/a
+'
+test_expect_success POSIXPERM,SANITY \
+'dirs-before/dirs-after of dir w/ dir w/o perms' '
+
+	cat >expected-out <<-EOF &&
+	[d] (a) [a] ./dir3/a
+	[d] (a) [a] ./dir3/a
+	EOF
+
+	chmod 0 dir3/a &&
+
+	test-tool dir-iterator --dirs-before --dirs-after ./dir3/ >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir3/a
+'
+test_expect_success POSIXPERM,SANITY \
+'pedantic dirs-before/dirs-after of dir w/ dir w/o perms' '
+
+	cat >expected-out <<-EOF &&
+	[d] (a) [a] ./dir3/a
+	dir_iterator_advance failure: EACCES
+	EOF
+
+	chmod 0 dir3/a &&
+
+	test_must_fail test-tool dir-iterator --dirs-before --dirs-after \
+		--pedantic ./dir3/ >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir3/a
+'
 
 test_expect_success 'setup -- dir w/ five files' '
 	mkdir dir4 &&
@@ -134,6 +223,34 @@ test_expect_success 'dirs-before of dir w/ five files' '
 
 	test_cmp expected-sorted-out actual-sorted-out
 '
+test_expect_success 'dirs-after of dir w/ five files' '
+	cat >expected-sorted-out <<-EOF &&
+	[f] (a) [a] ./dir4/a
+	[f] (b) [b] ./dir4/b
+	[f] (c) [c] ./dir4/c
+	[f] (d) [d] ./dir4/d
+	[f] (e) [e] ./dir4/e
+	EOF
+
+	test-tool dir-iterator --dirs-after ./dir4 >actual-out &&
+	sort actual-out >actual-sorted-out &&
+
+	test_cmp expected-sorted-out actual-sorted-out
+'
+test_expect_success 'dirs-before/dirs-after of dir w/ five files' '
+	cat >expected-sorted-out <<-EOF &&
+	[f] (a) [a] ./dir4/a
+	[f] (b) [b] ./dir4/b
+	[f] (c) [c] ./dir4/c
+	[f] (d) [d] ./dir4/d
+	[f] (e) [e] ./dir4/e
+	EOF
+
+	test-tool dir-iterator --dirs-before --dirs-after ./dir4 >actual-out &&
+	sort actual-out >actual-sorted-out &&
+
+	test_cmp expected-sorted-out actual-sorted-out
+'
 
 test_expect_success 'setup -- dir w/ dir w/ a file' '
 	mkdir -p dir5/a &&
@@ -155,6 +272,25 @@ test_expect_success 'dirs-before of dir w/ dir w/ a file' '
 
 	test-tool dir-iterator --dirs-before ./dir5 >actual-out &&
 	test_cmp expected-out actual-out
+'
+test_expect_success 'dirs-after of dir w/ dir w/ a file' '
+	cat >expected-after-out <<-EOF &&
+	[f] (a/b) [b] ./dir5/a/b
+	[d] (a) [a] ./dir5/a
+	EOF
+
+	test-tool dir-iterator --dirs-after ./dir5 >actual-out &&
+	test_cmp expected-after-out actual-out
+'
+test_expect_success 'dirs-before/dirs-after of dir w/ dir w/ a file' '
+	cat >expected-before-after-out <<-EOF &&
+	[d] (a) [a] ./dir5/a
+	[f] (a/b) [b] ./dir5/a/b
+	[d] (a) [a] ./dir5/a
+	EOF
+
+	test-tool dir-iterator --dirs-before --dirs-after ./dir5 >actual-out &&
+	test_cmp expected-before-after-out actual-out
 '
 
 test_expect_success 'setup -- dir w/ three nested dirs w/ file' '
@@ -179,6 +315,31 @@ test_expect_success 'dirs-before of dir w/ three nested dirs w/ file' '
 
 	test-tool dir-iterator --dirs-before ./dir6 >actual-out &&
 	test_cmp expected-out actual-out
+'
+test_expect_success 'dirs-after of dir w/ three nested dirs w/ file' '
+	cat >expected-after-out <<-EOF &&
+	[f] (a/b/c/d) [d] ./dir6/a/b/c/d
+	[d] (a/b/c) [c] ./dir6/a/b/c
+	[d] (a/b) [b] ./dir6/a/b
+	[d] (a) [a] ./dir6/a
+	EOF
+
+	test-tool dir-iterator --dirs-after ./dir6 >actual-out &&
+	test_cmp expected-after-out actual-out
+'
+test_expect_success 'dirs-before/dirs-after of dir w/ three nested dirs w/ file' '
+	cat >expected-before-after-out <<-EOF &&
+	[d] (a) [a] ./dir6/a
+	[d] (a/b) [b] ./dir6/a/b
+	[d] (a/b/c) [c] ./dir6/a/b/c
+	[f] (a/b/c/d) [d] ./dir6/a/b/c/d
+	[d] (a/b/c) [c] ./dir6/a/b/c
+	[d] (a/b) [b] ./dir6/a/b
+	[d] (a) [a] ./dir6/a
+	EOF
+
+	test-tool dir-iterator --dirs-before --dirs-after ./dir6 >actual-out &&
+	test_cmp expected-before-after-out actual-out
 '
 
 test_expect_success POSIXPERM,SANITY \
@@ -246,6 +407,70 @@ test_expect_success POSIXPERM,SANITY \
 
 	chmod 755 dir7/a/b
 '
+test_expect_success POSIXPERM,SANITY \
+'dirs-after of dir w/ three nested dirs w/ file, second w/o perms' '
+
+	cat >expected-out <<-EOF &&
+	[d] (a/b) [b] ./dir7/a/b
+	[d] (a) [a] ./dir7/a
+	EOF
+
+	chmod 0 dir7/a/b &&
+
+	test-tool dir-iterator --dirs-after ./dir7 >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir7/a/b
+'
+test_expect_success POSIXPERM,SANITY \
+'pedantic dirs-after of dir w/ three nested dirs w/ file, second w/o perms' '
+
+	cat >expected-out <<-EOF &&
+	dir_iterator_advance failure: EACCES
+	EOF
+
+	chmod 0 dir7/a/b &&
+
+	test_must_fail test-tool dir-iterator --dirs-after \
+		--pedantic ./dir7 >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir7/a/b
+'
+test_expect_success POSIXPERM,SANITY \
+'dirs-before/dirs-after of dir w/ three nested dirs w/ file, second w/o perms' '
+
+	cat >expected-out <<-EOF &&
+	[d] (a) [a] ./dir7/a
+	[d] (a/b) [b] ./dir7/a/b
+	[d] (a/b) [b] ./dir7/a/b
+	[d] (a) [a] ./dir7/a
+	EOF
+
+	chmod 0 dir7/a/b &&
+
+	test-tool dir-iterator --dirs-before --dirs-after ./dir7 >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir7/a/b
+'
+test_expect_success POSIXPERM,SANITY \
+'pedantic dirs-before/dirs-after of dir w/ three nested dirs w/ file, second w/o perms' '
+
+	cat >expected-out <<-EOF &&
+	[d] (a) [a] ./dir7/a
+	[d] (a/b) [b] ./dir7/a/b
+	dir_iterator_advance failure: EACCES
+	EOF
+
+	chmod 0 dir7/a/b &&
+
+	test_must_fail test-tool dir-iterator --dirs-before --dirs-after \
+		--pedantic ./dir7 >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir7/a/b
+'
 
 test_expect_success 'setup -- dir w/ two dirs each w/ file' '
 	mkdir -p dir8/a &&
@@ -284,6 +509,50 @@ test_expect_success 'dirs-before of dir w/ two dirs each w/ file' '
 	EOF
 
 	test-tool dir-iterator --dirs-before ./dir8 >actual-out &&
+	(
+		test_cmp expected-out1 actual-out ||
+		test_cmp expected-out2 actual-out
+	)
+'
+test_expect_success 'dirs-after of dir w/ two dirs each w/ file' '
+	cat >expected-out1 <<-EOF &&
+	[f] (a/b) [b] ./dir8/a/b
+	[d] (a) [a] ./dir8/a
+	[f] (c/d) [d] ./dir8/c/d
+	[d] (c) [c] ./dir8/c
+	EOF
+	cat >expected-out2 <<-EOF &&
+	[f] (c/d) [d] ./dir8/c/d
+	[d] (c) [c] ./dir8/c
+	[f] (a/b) [b] ./dir8/a/b
+	[d] (a) [a] ./dir8/a
+	EOF
+
+	test-tool dir-iterator --dirs-after ./dir8 >actual-out &&
+	(
+		test_cmp expected-out1 actual-out ||
+		test_cmp expected-out2 actual-out
+	)
+'
+test_expect_success 'dirs-before/dirs-after of dir w/ two dirs each w/ file' '
+	cat >expected-out1 <<-EOF &&
+	[d] (a) [a] ./dir8/a
+	[f] (a/b) [b] ./dir8/a/b
+	[d] (a) [a] ./dir8/a
+	[d] (c) [c] ./dir8/c
+	[f] (c/d) [d] ./dir8/c/d
+	[d] (c) [c] ./dir8/c
+	EOF
+	cat >expected-out2 <<-EOF &&
+	[d] (c) [c] ./dir8/c
+	[f] (c/d) [d] ./dir8/c/d
+	[d] (c) [c] ./dir8/c
+	[d] (a) [a] ./dir8/a
+	[f] (a/b) [b] ./dir8/a/b
+	[d] (a) [a] ./dir8/a
+	EOF
+
+	test-tool dir-iterator --dirs-before --dirs-after ./dir8 >actual-out &&
 	(
 		test_cmp expected-out1 actual-out ||
 		test_cmp expected-out2 actual-out
@@ -369,6 +638,94 @@ test_expect_success \
 		test_cmp expected-out4 actual-out
 	)
 '
+test_expect_success \
+'dirs-after of dir w/ two dirs, one w/ two, one w/ one files' '
+
+	cat >expected-out1 <<-EOF &&
+	[f] (a/b) [b] ./dir9/a/b
+	[f] (a/c) [c] ./dir9/a/c
+	[d] (a) [a] ./dir9/a
+	[f] (d/e) [e] ./dir9/d/e
+	[d] (d) [d] ./dir9/d
+	EOF
+	cat >expected-out2 <<-EOF &&
+	[f] (a/c) [c] ./dir9/a/c
+	[f] (a/b) [b] ./dir9/a/b
+	[d] (a) [a] ./dir9/a
+	[f] (d/e) [e] ./dir9/d/e
+	[d] (d) [d] ./dir9/d
+	EOF
+	cat >expected-out3 <<-EOF &&
+	[f] (d/e) [e] ./dir9/d/e
+	[d] (d) [d] ./dir9/d
+	[f] (a/b) [b] ./dir9/a/b
+	[f] (a/c) [c] ./dir9/a/c
+	[d] (a) [a] ./dir9/a
+	EOF
+	cat >expected-out4 <<-EOF &&
+	[f] (d/e) [e] ./dir9/d/e
+	[d] (d) [d] ./dir9/d
+	[f] (a/c) [c] ./dir9/a/c
+	[f] (a/b) [b] ./dir9/a/b
+	[d] (a) [a] ./dir9/a
+	EOF
+
+	test-tool dir-iterator --dirs-after ./dir9 >actual-out &&
+	(
+		test_cmp expected-out1 actual-out ||
+		test_cmp expected-out2 actual-out ||
+		test_cmp expected-out3 actual-out ||
+		test_cmp expected-out4 actual-out
+	)
+'
+test_expect_success \
+'dirs-before/dirs-after of dir w/ two dirs, one w/ two and one w/ one files' '
+
+	cat >expected-out1 <<-EOF &&
+	[d] (a) [a] ./dir9/a
+	[f] (a/b) [b] ./dir9/a/b
+	[f] (a/c) [c] ./dir9/a/c
+	[d] (a) [a] ./dir9/a
+	[d] (d) [d] ./dir9/d
+	[f] (d/e) [e] ./dir9/d/e
+	[d] (d) [d] ./dir9/d
+	EOF
+	cat >expected-out2 <<-EOF &&
+	[d] (a) [a] ./dir9/a
+	[f] (a/c) [c] ./dir9/a/c
+	[f] (a/b) [b] ./dir9/a/b
+	[d] (a) [a] ./dir9/a
+	[d] (d) [d] ./dir9/d
+	[f] (d/e) [e] ./dir9/d/e
+	[d] (d) [d] ./dir9/d
+	EOF
+	cat >expected-out3 <<-EOF &&
+	[d] (d) [d] ./dir9/d
+	[f] (d/e) [e] ./dir9/d/e
+	[d] (d) [d] ./dir9/d
+	[d] (a) [a] ./dir9/a
+	[f] (a/b) [b] ./dir9/a/b
+	[f] (a/c) [c] ./dir9/a/c
+	[d] (a) [a] ./dir9/a
+	EOF
+	cat >expected-out4 <<-EOF &&
+	[d] (d) [d] ./dir9/d
+	[f] (d/e) [e] ./dir9/d/e
+	[d] (d) [d] ./dir9/d
+	[d] (a) [a] ./dir9/a
+	[f] (a/c) [c] ./dir9/a/c
+	[f] (a/b) [b] ./dir9/a/b
+	[d] (a) [a] ./dir9/a
+	EOF
+
+	test-tool dir-iterator --dirs-before --dirs-after ./dir9 >actual-out &&
+	(
+		test_cmp expected-out1 actual-out ||
+		test_cmp expected-out2 actual-out ||
+		test_cmp expected-out3 actual-out ||
+		test_cmp expected-out4 actual-out
+	)
+'
 
 test_expect_success 'setup -- dir w/ two nested dirs, each w/ file' '
 	mkdir -p dir10/a &&
@@ -407,6 +764,50 @@ test_expect_success 'dirs-before of dir w/ two nested dirs, each w/ file' '
 	EOF
 
 	test-tool dir-iterator --dirs-before ./dir10/ >actual-out &&
+	(
+		test_cmp expected-out1 actual-out ||
+		test_cmp expected-out2 actual-out
+	)
+'
+test_expect_success 'dirs-after of dir w/ two nested dirs, each w/ file' '
+	cat >expected-out1 <<-EOF &&
+	[f] (a/b) [b] ./dir10/a/b
+	[f] (a/c/d) [d] ./dir10/a/c/d
+	[d] (a/c) [c] ./dir10/a/c
+	[d] (a) [a] ./dir10/a
+	EOF
+	cat >expected-out2 <<-EOF &&
+	[f] (a/c/d) [d] ./dir10/a/c/d
+	[d] (a/c) [c] ./dir10/a/c
+	[f] (a/b) [b] ./dir10/a/b
+	[d] (a) [a] ./dir10/a
+	EOF
+
+	test-tool dir-iterator --dirs-after ./dir10/ >actual-out &&
+	(
+		test_cmp expected-out1 actual-out ||
+		test_cmp expected-out2 actual-out
+	)
+'
+test_expect_success 'dirs-before/dirs-after of dir w/ two nested dirs, each w/ file' '
+	cat >expected-out1 <<-EOF &&
+	[d] (a) [a] ./dir10/a
+	[f] (a/b) [b] ./dir10/a/b
+	[d] (a/c) [c] ./dir10/a/c
+	[f] (a/c/d) [d] ./dir10/a/c/d
+	[d] (a/c) [c] ./dir10/a/c
+	[d] (a) [a] ./dir10/a
+	EOF
+	cat >expected-out2 <<-EOF &&
+	[d] (a) [a] ./dir10/a
+	[d] (a/c) [c] ./dir10/a/c
+	[f] (a/c/d) [d] ./dir10/a/c/d
+	[d] (a/c) [c] ./dir10/a/c
+	[f] (a/b) [b] ./dir10/a/b
+	[d] (a) [a] ./dir10/a
+	EOF
+
+	test-tool dir-iterator --dirs-before --dirs-after ./dir10 >actual-out &&
 	(
 		test_cmp expected-out1 actual-out ||
 		test_cmp expected-out2 actual-out
@@ -453,6 +854,52 @@ test_expect_success 'dirs-before of dir w/ complex structure' '
 	EOF
 
 	test-tool dir-iterator --dirs-before ./dir11 >actual-out &&
+	sort actual-out >actual-sorted-out &&
+
+	test_cmp expected-sorted-out actual-sorted-out
+'
+test_expect_success 'dirs-after of dir w/ complex structure' '
+	cat >expected-sorted-out <<-EOF &&
+	[d] (a) [a] ./dir11/a
+	[d] (a/b) [b] ./dir11/a/b
+	[d] (a/b/c) [c] ./dir11/a/b/c
+	[d] (d) [d] ./dir11/d
+	[d] (d/e) [e] ./dir11/d/e
+	[d] (d/e/d) [d] ./dir11/d/e/d
+	[f] (a/b/c/d) [d] ./dir11/a/b/c/d
+	[f] (a/e) [e] ./dir11/a/e
+	[f] (b) [b] ./dir11/b
+	[f] (c) [c] ./dir11/c
+	[f] (d/e/d/a) [a] ./dir11/d/e/d/a
+	EOF
+
+	test-tool dir-iterator --dirs-after ./dir11 >actual-out &&
+	sort actual-out >actual-sorted-out &&
+
+	test_cmp expected-sorted-out actual-sorted-out
+'
+test_expect_success 'dirs-before/dirs-after of dir w/ complex structure' '
+	cat >expected-sorted-out <<-EOF &&
+	[d] (a) [a] ./dir11/a
+	[d] (a) [a] ./dir11/a
+	[d] (a/b) [b] ./dir11/a/b
+	[d] (a/b) [b] ./dir11/a/b
+	[d] (a/b/c) [c] ./dir11/a/b/c
+	[d] (a/b/c) [c] ./dir11/a/b/c
+	[d] (d) [d] ./dir11/d
+	[d] (d) [d] ./dir11/d
+	[d] (d/e) [e] ./dir11/d/e
+	[d] (d/e) [e] ./dir11/d/e
+	[d] (d/e/d) [d] ./dir11/d/e/d
+	[d] (d/e/d) [d] ./dir11/d/e/d
+	[f] (a/b/c/d) [d] ./dir11/a/b/c/d
+	[f] (a/e) [e] ./dir11/a/e
+	[f] (b) [b] ./dir11/b
+	[f] (c) [c] ./dir11/c
+	[f] (d/e/d/a) [a] ./dir11/d/e/d/a
+	EOF
+
+	test-tool dir-iterator --dirs-before --dirs-after ./dir11 >actual-out &&
 	sort actual-out >actual-sorted-out &&
 
 	test_cmp expected-sorted-out actual-sorted-out
@@ -506,6 +953,61 @@ test_expect_success POSIXPERM,SANITY 'pedantic dirs-before of root dir w/o perms
 	chmod 0 dir12 &&
 
 	test_must_fail test-tool dir-iterator --dirs-before \
+		--pedantic ./dir12 >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir12
+'
+test_expect_success POSIXPERM,SANITY 'dirs-after of root dir w/o perms' '
+	cat >expected-out <<-EOF &&
+	dir_iterator_begin failure: EACCES
+	EOF
+
+	chmod 0 dir12 &&
+
+	test_must_fail test-tool dir-iterator --dirs-after ./dir12 >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir12
+'
+test_expect_success POSIXPERM,SANITY 'pedantic dirs-after of root dir w/o perms' '
+	cat >expected-out <<-EOF &&
+	dir_iterator_begin failure: EACCES
+	EOF
+
+	chmod 0 dir12 &&
+
+	test_must_fail test-tool dir-iterator --dirs-after \
+		--pedantic ./dir12 >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir12
+'
+test_expect_success POSIXPERM,SANITY \
+'dirs-before/dirs-after of root dir w/o perms' '
+
+	cat >expected-out <<-EOF &&
+	dir_iterator_begin failure: EACCES
+	EOF
+
+	chmod 0 dir12 &&
+
+	test_must_fail test-tool dir-iterator --dirs-before --dirs-after \
+		./dir12 >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir12
+'
+test_expect_success POSIXPERM,SANITY \
+'pedantic dirs-before/dirs-after of root dir w/o perms' '
+
+	cat >expected-out <<-EOF &&
+	dir_iterator_begin failure: EACCES
+	EOF
+
+	chmod 0 dir12 &&
+
+	test_must_fail test-tool dir-iterator --dirs-before --dirs-after \
 		--pedantic ./dir12 >actual-out &&
 	test_cmp expected-out actual-out &&
 
@@ -591,6 +1093,66 @@ test_expect_success POSIXPERM,SANITY \
 
 	chmod 755 dir13/a
 '
+test_expect_success POSIXPERM,SANITY \
+'dirs-after of dir w/ dir w/o perms w/ file' '
+
+	cat >expected-out <<-EOF &&
+	[d] (a) [a] ./dir13/a
+	EOF
+
+	chmod 0 dir13/a &&
+
+	test-tool dir-iterator --dirs-after ./dir13 >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir13/a
+'
+test_expect_success POSIXPERM,SANITY \
+'pedantic dirs-after of dir w/ dir w/o perms w/ file' '
+
+	cat >expected-out <<-EOF &&
+	dir_iterator_advance failure: EACCES
+	EOF
+
+	chmod 0 dir13/a &&
+
+	test_must_fail test-tool dir-iterator --dirs-after \
+		--pedantic ./dir13 >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir13/a
+'
+test_expect_success POSIXPERM,SANITY \
+'dirs-before/dirs-after of dir w/ dir w/o perms w/ file' '
+
+	cat >expected-out <<-EOF &&
+	[d] (a) [a] ./dir13/a
+	[d] (a) [a] ./dir13/a
+	EOF
+
+	chmod 0 dir13/a &&
+
+	test-tool dir-iterator --dirs-before --dirs-after ./dir13 >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir13/a
+'
+test_expect_success POSIXPERM,SANITY \
+'pedantic dirs-before/dirs-after of dir w/ dir w/o perms w/ file' '
+
+	cat >expected-out <<-EOF &&
+	[d] (a) [a] ./dir13/a
+	dir_iterator_advance failure: EACCES
+	EOF
+
+	chmod 0 dir13/a &&
+
+	test_must_fail test-tool dir-iterator --dirs-before --dirs-after \
+		--pedantic ./dir13 >actual-out &&
+	test_cmp expected-out actual-out &&
+
+	chmod 755 dir13/a
+'
 
 test_expect_success SYMLINKS 'setup -- dir w/ symlinks w/o cycle' '
 	mkdir -p dir14/a &&
@@ -657,6 +1219,81 @@ test_expect_success SYMLINKS \
 
 	test_cmp expected-sorted-out actual-sorted-out
 '
+test_expect_success SYMLINKS 'dirs-after of dir w/ symlinks w/o cycle' '
+	cat >expected-sorted-out <<-EOF &&
+	[d] (a) [a] ./dir14/a
+	[d] (b) [b] ./dir14/b
+	[d] (b/c) [c] ./dir14/b/c
+	[f] (a/d) [d] ./dir14/a/d
+	[s] (a/e) [e] ./dir14/a/e
+	[s] (a/f) [f] ./dir14/a/f
+	EOF
+
+	test-tool dir-iterator --dirs-after ./dir14 >actual-out &&
+	sort actual-out >actual-sorted-out &&
+
+	test_cmp expected-sorted-out actual-sorted-out
+'
+test_expect_success SYMLINKS \
+'follow-symlinks dirs-after of dir w/ symlinks w/o cycle' '
+
+	cat >expected-sorted-out <<-EOF &&
+	[d] (a) [a] ./dir14/a
+	[d] (a/f) [f] ./dir14/a/f
+	[d] (a/f/c) [c] ./dir14/a/f/c
+	[d] (b) [b] ./dir14/b
+	[d] (b/c) [c] ./dir14/b/c
+	[f] (a/d) [d] ./dir14/a/d
+	[f] (a/e) [e] ./dir14/a/e
+	EOF
+
+	test-tool dir-iterator --dirs-after --follow-symlinks ./dir14 >actual-out &&
+	sort actual-out >actual-sorted-out &&
+
+	test_cmp expected-sorted-out actual-sorted-out
+'
+test_expect_success SYMLINKS 'dirs-before/dirs-after of dir w/ symlinks w/o cycle' '
+	cat >expected-sorted-out <<-EOF &&
+	[d] (a) [a] ./dir14/a
+	[d] (a) [a] ./dir14/a
+	[d] (b) [b] ./dir14/b
+	[d] (b) [b] ./dir14/b
+	[d] (b/c) [c] ./dir14/b/c
+	[d] (b/c) [c] ./dir14/b/c
+	[f] (a/d) [d] ./dir14/a/d
+	[s] (a/e) [e] ./dir14/a/e
+	[s] (a/f) [f] ./dir14/a/f
+	EOF
+
+	test-tool dir-iterator --dirs-before --dirs-after ./dir14 >actual-out &&
+	sort actual-out >actual-sorted-out &&
+
+	test_cmp expected-sorted-out actual-sorted-out
+'
+test_expect_success SYMLINKS \
+'follow-symlinks dirs-before/dirs-after of dir w/ symlinks w/o cycle' '
+
+	cat >expected-sorted-out <<-EOF &&
+	[d] (a) [a] ./dir14/a
+	[d] (a) [a] ./dir14/a
+	[d] (a/f) [f] ./dir14/a/f
+	[d] (a/f) [f] ./dir14/a/f
+	[d] (a/f/c) [c] ./dir14/a/f/c
+	[d] (a/f/c) [c] ./dir14/a/f/c
+	[d] (b) [b] ./dir14/b
+	[d] (b) [b] ./dir14/b
+	[d] (b/c) [c] ./dir14/b/c
+	[d] (b/c) [c] ./dir14/b/c
+	[f] (a/d) [d] ./dir14/a/d
+	[f] (a/e) [e] ./dir14/a/e
+	EOF
+
+	test-tool dir-iterator --dirs-before --dirs-after \
+		--follow-symlinks ./dir14 >actual-out &&
+	sort actual-out >actual-sorted-out &&
+
+	test_cmp expected-sorted-out actual-sorted-out
+'
 
 test_expect_success SYMLINKS 'setup -- dir w/ symlinks w/ cycle' '
 	mkdir -p dir15/a/b &&
@@ -690,8 +1327,7 @@ test_expect_success SYMLINKS \
 
 	test_cmp expected-tailed-out actual-tailed-out
 '
-test_expect_success SYMLINKS \
-'dirs-before of dir w/ symlinks w/ cycle' '
+test_expect_success SYMLINKS 'dirs-before of dir w/ symlinks w/ cycle' '
 
 	cat >expected-sorted-out <<-EOF &&
 	[d] (a) [a] ./dir15/a
@@ -715,6 +1351,65 @@ test_expect_success SYMLINKS \
 	EOF
 
 	test_must_fail test-tool dir-iterator --dirs-before \
+		--pedantic --follow-symlinks ./dir15 >actual-out &&
+	tail -n 1 actual-out >actual-tailed-out &&
+
+	test_cmp expected-tailed-out actual-tailed-out
+'
+test_expect_success SYMLINKS 'dirs-after of dir w/ symlinks w/ cycle' '
+	cat >expected-sorted-out <<-EOF &&
+	[d] (a) [a] ./dir15/a
+	[d] (a/b) [b] ./dir15/a/b
+	[d] (a/c) [c] ./dir15/a/c
+	[s] (a/b/d) [d] ./dir15/a/b/d
+	[s] (a/b/e) [e] ./dir15/a/b/e
+	[s] (a/b/f) [f] ./dir15/a/b/f
+	EOF
+
+	test-tool dir-iterator --dirs-after ./dir15 >actual-out &&
+	sort actual-out >actual-sorted-out &&
+
+	test_cmp expected-sorted-out actual-sorted-out
+'
+test_expect_success SYMLINKS \
+'pedantic follow-symlinks dirs-after of dir w/ symlinks w/ cycle' '
+
+	cat >expected-tailed-out <<-EOF &&
+	dir_iterator_advance failure: ELOOP
+	EOF
+
+	test_must_fail test-tool dir-iterator --dirs-after \
+		--pedantic --follow-symlinks ./dir15 >actual-out &&
+	tail -n 1 actual-out >actual-tailed-out &&
+
+	test_cmp expected-tailed-out actual-tailed-out
+'
+test_expect_success SYMLINKS 'dirs-before/dirs-after of dir w/ symlinks w/ cycle' '
+	cat >expected-sorted-out <<-EOF &&
+	[d] (a) [a] ./dir15/a
+	[d] (a) [a] ./dir15/a
+	[d] (a/b) [b] ./dir15/a/b
+	[d] (a/b) [b] ./dir15/a/b
+	[d] (a/c) [c] ./dir15/a/c
+	[d] (a/c) [c] ./dir15/a/c
+	[s] (a/b/d) [d] ./dir15/a/b/d
+	[s] (a/b/e) [e] ./dir15/a/b/e
+	[s] (a/b/f) [f] ./dir15/a/b/f
+	EOF
+
+	test-tool dir-iterator --dirs-before --dirs-after ./dir15 >actual-out &&
+	sort actual-out >actual-sorted-out &&
+
+	test_cmp expected-sorted-out actual-sorted-out
+'
+test_expect_success SYMLINKS \
+'pedantic follow-symlinks dirs-before/dirs-after of dir w/ symlinks w/ cycle' '
+
+	cat >expected-tailed-out <<-EOF &&
+	dir_iterator_advance failure: ELOOP
+	EOF
+
+	test_must_fail test-tool dir-iterator --dirs-before --dirs-after \
 		--pedantic --follow-symlinks ./dir15 >actual-out &&
 	tail -n 1 actual-out >actual-tailed-out &&
 

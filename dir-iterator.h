@@ -14,10 +14,11 @@
  * Every time dir_iterator_advance() is called, update the members of
  * the dir_iterator structure to reflect the next path in the
  * iteration. The order that paths are iterated over within a
- * directory is undefined. Directory paths are given before their
- * contents when DIR_ITERATOR_DIRS_BEFORE is set. Failure to set this
- * flag results in directories themselves not being exposed. Instead,
- * only their contents will be exposed.
+ * directory is undefined. Directory paths are given before
+ * their contents when DIR_ITERATOR_DIRS_BEFORE is set and after when
+ * DIR_ITERATOR_DIRS_AFTER is set. Failure to set any of them results
+ * in directories themselves not being exposed. Instead, only their
+ * contents will be exposed.
  *
  * A typical iteration looks like this:
  *
@@ -66,8 +67,13 @@
  * - DIR_ITERATOR_DIRS_BEFORE: make dir-iterator expose a directory path
  *   before iterating through that directory's contents.
  *
- * Note: Activating none will iterate through directories' contents
- * but won't expose the directories themselves.
+ * - DIR_ITERATOR_DIRS_AFTER: make dir-iterator expose a directory path after
+ *   iterating through that directory's contents.
+ *
+ * Note: any combination of DIR_ITERATOR_BEFORE and DIR_ITERATOR_AFTER works.
+ * Activating both of them will expose directories when descending into one and
+ * when it's been exhausted. Activating none will iterate through directories'
+ * contents but won't expose the directories themselves.
  *
  * Warning: circular symlinks are also followed when
  * DIR_ITERATOR_FOLLOW_SYMLINKS is set. The iteration may end up with
@@ -76,6 +82,7 @@
 #define DIR_ITERATOR_PEDANTIC (1 << 0)
 #define DIR_ITERATOR_FOLLOW_SYMLINKS (1 << 1)
 #define DIR_ITERATOR_DIRS_BEFORE (1 << 2)
+#define DIR_ITERATOR_DIRS_AFTER (1 << 3)
 
 struct dir_iterator {
 	/* The current path: */
@@ -111,8 +118,8 @@ struct dir_iterator {
  * Parameters are:
  *  - path is the starting directory. An internal copy will be made.
  *  - flags is a combination of the possible flags to initialize a
- *    dir-iterator or 0 for default behavior which will ignore directory paths,
- *    but will include the rest directory contents.
+ *    dir-iterator or 0 for default behavior which will ignore directory
+ *    paths, but will include the rest directory contents.
  */
 struct dir_iterator *dir_iterator_begin(const char *path, unsigned int flags);
 
