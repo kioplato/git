@@ -15,7 +15,16 @@ static const char *error_name(int error_number)
 
 /*
  * usage:
- * tool-test dir-iterator [--follow-symlinks] [--pedantic] directory_path
+ * test-tool dir-iterator [OPTIONS] directory_path
+ *
+ * OPTIONS
+ *	--follow-symlinks
+ *	--pedantic
+ *	--dirs-before
+ *	--dirs-after
+ *
+ * example:
+ * test-tool dir-iterator --pedantic --dirs-before --dirs-after ./somedir
  */
 int cmd__dir_iterator(int argc, const char **argv)
 {
@@ -28,6 +37,10 @@ int cmd__dir_iterator(int argc, const char **argv)
 			flags |= DIR_ITERATOR_FOLLOW_SYMLINKS;
 		else if (strcmp(*argv, "--pedantic") == 0)
 			flags |= DIR_ITERATOR_PEDANTIC;
+		else if (strcmp(*argv, "--dirs-before") == 0)
+			flags |= DIR_ITERATOR_DIRS_BEFORE;
+		else if (strcmp(*argv, "--dirs-after") == 0)
+			flags |= DIR_ITERATOR_DIRS_AFTER;
 		else
 			die("invalid option '%s'", *argv);
 	}

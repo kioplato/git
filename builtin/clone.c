@@ -321,7 +321,9 @@ static void copy_or_link_directory(struct strbuf *src, struct strbuf *dest,
 
 	mkdir_if_missing(dest->buf, 0777);
 
-	flags = DIR_ITERATOR_PEDANTIC | DIR_ITERATOR_FOLLOW_SYMLINKS;
+	flags = DIR_ITERATOR_DIRS_BEFORE |
+		DIR_ITERATOR_PEDANTIC |
+		DIR_ITERATOR_FOLLOW_SYMLINKS;
 	iter = dir_iterator_begin(src->buf, flags);
 
 	if (!iter)
