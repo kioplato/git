@@ -5,7 +5,7 @@ test_description='Test the dir-iterator functionality'
 TEST_PASSES_SANITIZE_LEAK=true
 . ./test-lib.sh
 
-test_expect_success 'setup' '
+test_expect_success 'setup -- dir w/ complex structure' '
 	mkdir -p dir &&
 	mkdir -p dir/a/b/c/ &&
 	>dir/b &&
@@ -13,12 +13,8 @@ test_expect_success 'setup' '
 	mkdir -p dir/d/e/d/ &&
 	>dir/a/b/c/d &&
 	>dir/a/e &&
-	>dir/d/e/d/a &&
-
-	mkdir -p dir2/a/b/c/ &&
-	>dir2/a/b/c/d
+	>dir/d/e/d/a
 '
-
 test_expect_success 'dir-iterator should iterate through all files' '
 	cat >expected-iteration-sorted-output <<-EOF &&
 	[d] (a) [a] ./dir/a
@@ -40,6 +36,10 @@ test_expect_success 'dir-iterator should iterate through all files' '
 	test_cmp expected-iteration-sorted-output actual-iteration-sorted-output
 '
 
+test_expect_success 'setup -- dir w/ three nested dirs w/ file' '
+	mkdir -p dir2/a/b/c &&
+	>dir2/a/b/c/d
+'
 test_expect_success 'dir-iterator should list files in the correct order' '
 	cat >expected-pre-order-output <<-EOF &&
 	[d] (a) [a] ./dir2/a
@@ -54,65 +54,59 @@ test_expect_success 'dir-iterator should list files in the correct order' '
 '
 
 test_expect_success 'begin should fail upon inexistent paths' '
+	echo "dir_iterator_begin failure: ENOENT" >expected-inexistent-path-output &&
+
 	test_must_fail test-tool dir-iterator ./inexistent-path \
 		>actual-inexistent-path-output &&
-	echo "dir_iterator_begin failure: ENOENT" >expected-inexistent-path-output &&
+
 	test_cmp expected-inexistent-path-output actual-inexistent-path-output
 '
 
 test_expect_success 'begin should fail upon non directory paths' '
-	test_must_fail test-tool dir-iterator ./dir/b >actual-non-dir-output &&
 	echo "dir_iterator_begin failure: ENOTDIR" >expected-non-dir-output &&
+
+	test_must_fail test-tool dir-iterator ./dir/b >actual-non-dir-output &&
+
 	test_cmp expected-non-dir-output actual-non-dir-output
 '
 
+test_expect_success POSIXPERM,SANITY 'setup -- dir w/ dir w/ file w/o perms' '
+	mkdir -p dir3/a &&
+	>dir3/a/b
+'
 test_expect_success POSIXPERM,SANITY 'advance should not fail on errors by default' '
 	cat >expected-no-permissions-output <<-EOF &&
 	[d] (a) [a] ./dir3/a
 	EOF
 
-	mkdir -p dir3/a &&
-	>dir3/a/b &&
 	chmod 0 dir3/a &&
 
 	test-tool dir-iterator ./dir3 >actual-no-permissions-output &&
 	test_cmp expected-no-permissions-output actual-no-permissions-output &&
-	chmod 755 dir3/a &&
-	rm -rf dir3
+	chmod 755 dir3/a
 '
-
 test_expect_success POSIXPERM,SANITY 'advance should fail on errors, w/ pedantic flag' '
 	cat >expected-no-permissions-pedantic-output <<-EOF &&
 	[d] (a) [a] ./dir3/a
 	dir_iterator_advance failure
 	EOF
 
-	mkdir -p dir3/a &&
-	>dir3/a/b &&
 	chmod 0 dir3/a &&
 
 	test_must_fail test-tool dir-iterator --pedantic ./dir3 \
 		>actual-no-permissions-pedantic-output &&
 	test_cmp expected-no-permissions-pedantic-output \
 		actual-no-permissions-pedantic-output &&
-	chmod 755 dir3/a &&
-	rm -rf dir3
+	chmod 755 dir3/a
 '
 
-test_expect_success SYMLINKS 'setup dirs with symlinks' '
+test_expect_success SYMLINKS 'setup -- dir w/ symlinks, w/o cycle' '
 	mkdir -p dir4/a &&
 	mkdir -p dir4/b/c &&
 	>dir4/a/d &&
 	ln -s d dir4/a/e &&
-	ln -s ../b dir4/a/f &&
-
-	mkdir -p dir5/a/b &&
-	mkdir -p dir5/a/c &&
-	ln -s ../c dir5/a/b/d &&
-	ln -s ../ dir5/a/b/e &&
-	ln -s ../../ dir5/a/b/f
+	ln -s ../b dir4/a/f
 '
-
 test_expect_success SYMLINKS 'dir-iterator should not follow symlinks by default' '
 	cat >expected-no-follow-sorted-output <<-EOF &&
 	[d] (a) [a] ./dir4/a
@@ -128,7 +122,6 @@ test_expect_success SYMLINKS 'dir-iterator should not follow symlinks by default
 
 	test_cmp expected-no-follow-sorted-output actual-no-follow-sorted-output
 '
-
 test_expect_success SYMLINKS 'dir-iterator should follow symlinks w/ follow flag' '
 	cat >expected-follow-sorted-output <<-EOF &&
 	[d] (a) [a] ./dir4/a
@@ -144,6 +137,14 @@ test_expect_success SYMLINKS 'dir-iterator should follow symlinks w/ follow flag
 	sort out >actual-follow-sorted-output &&
 
 	test_cmp expected-follow-sorted-output actual-follow-sorted-output
+'
+
+test_expect_success SYMLINKS 'setup -- dir w/ symlinks, w/ cycle' '
+	mkdir -p dir5/a/b &&
+	mkdir -p dir5/a/c &&
+	ln -s ../c dir5/a/b/d &&
+	ln -s ../ dir5/a/b/e &&
+	ln -s ../../ dir5/a/b/f
 '
 
 test_done
