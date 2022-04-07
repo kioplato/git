@@ -894,46 +894,6 @@ test_expect_success 'dir_iterator_begin() should fail upon non directory paths' 
 	test_cmp expected-non-dir-out actual-out
 '
 
-test_expect_success POSIXPERM,SANITY \
-'dir_iterator_advance() should not fail on errors by default' '
-
-	mkdir -p dir13/a &&
-	>dir13/a/b &&
-	chmod 0 dir13/a &&
-
-
-	cat >expected-no-permissions-out <<-EOF &&
-	[d] (a) [a] ./dir13/a
-	EOF
-
-	test-tool dir-iterator --dirs-before ./dir13 >actual-out &&
-	test_cmp expected-no-permissions-out actual-out &&
-
-	chmod 755 dir13/a &&
-	rm -rf dir13
-'
-
-test_expect_success POSIXPERM,SANITY \
-'dir_iterator_advance() should fail on errors, w/ pedantic flag' '
-
-	mkdir -p dir13/a &&
-	>dir13/a/b &&
-	chmod 0 dir13/a &&
-
-
-	cat >expected-no-permissions-pedantic-out <<-EOF &&
-	[d] (a) [a] ./dir13/a
-	dir_iterator_advance failure
-	EOF
-
-	test_must_fail test-tool dir-iterator --dirs-before \
-		--pedantic ./dir13 >actual-out &&
-	test_cmp expected-no-permissions-pedantic-out actual-out &&
-
-	chmod 755 dir13/a &&
-	rm -rf dir13
-'
-
 test_expect_success SYMLINKS 'setup -- dir w/ symlinks w/o cycle' '
 	mkdir -p dir14/a &&
 	mkdir -p dir14/b/c &&
