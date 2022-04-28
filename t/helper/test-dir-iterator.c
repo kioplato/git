@@ -59,7 +59,7 @@ int cmd__dir_iterator(int argc, const char **argv)
 	}
 
 	if (iter_status != ITER_DONE) {
-		printf("dir_iterator_advance failure\n");
+		printf("dir_iterator_advance failure: %s\n", error_name(errno));
 		return EXIT_FAILURE;
 	}
 

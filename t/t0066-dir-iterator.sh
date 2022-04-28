@@ -90,7 +90,7 @@ test_expect_success POSIXPERM,SANITY 'advance should not fail on errors by defau
 test_expect_success POSIXPERM,SANITY 'advance should fail on errors, w/ pedantic flag' '
 	cat >expected-out <<-EOF &&
 	[d] (a) [a] ./dir3/a
-	dir_iterator_advance failure
+	dir_iterator_advance failure: EACCES
 	EOF
 
 	chmod 0 dir3/a &&
