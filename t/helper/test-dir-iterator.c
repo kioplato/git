@@ -9,6 +9,8 @@ static const char *error_name(int error_number)
 	switch (error_number) {
 	case ENOENT: return "ENOENT";
 	case ENOTDIR: return "ENOTDIR";
+	case EACCES: return "EACCES";
+	case ELOOP: return "ELOOP";
 	default: return "ESOMETHINGELSE";
 	}
 }
