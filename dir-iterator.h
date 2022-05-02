@@ -8,19 +8,21 @@
  *
  * Iterate over a directory tree, recursively, including paths of all
  * types and hidden paths. Skip "." and ".." entries and don't follow
- * symlinks except for the original path. Note that the original path
- * is not included in the iteration.
+ * symlinks except when DIR_ITERATOR_FOLLOW_SYMLINKS is set.
+ * Note that the original path is not included in the iteration.
  *
  * Every time dir_iterator_advance() is called, update the members of
  * the dir_iterator structure to reflect the next path in the
  * iteration. The order that paths are iterated over within a
- * directory is undefined, directory paths are always given before
- * their contents.
+ * directory is undefined. Directory paths are given before their
+ * contents when DIR_ITERATOR_DIRS_BEFORE is set. Failure to set this
+ * flag results in directories themselves not being exposed. Instead,
+ * only their contents will be exposed.
  *
  * A typical iteration looks like this:
  *
  *     int ok;
- *     unsigned int flags = DIR_ITERATOR_PEDANTIC;
+ *     unsigned int flags = DIR_ITERATOR_PEDANTIC | DIR_ITERATOR_DIRS_BEFORE;
  *     struct dir_iterator *iter = dir_iterator_begin(path, flags);
  *
  *     if (!iter)
@@ -61,12 +63,19 @@
  *   not the symlinks themselves, which is the default behavior. Broken
  *   symlinks are ignored.
  *
+ * - DIR_ITERATOR_DIRS_BEFORE: make dir-iterator expose a directory path
+ *   before iterating through that directory's contents.
+ *
+ * Note: Activating none will iterate through directories' contents
+ * but won't expose the directories themselves.
+ *
  * Warning: circular symlinks are also followed when
  * DIR_ITERATOR_FOLLOW_SYMLINKS is set. The iteration may end up with
  * an ELOOP if they happen and DIR_ITERATOR_PEDANTIC is set.
  */
 #define DIR_ITERATOR_PEDANTIC (1 << 0)
 #define DIR_ITERATOR_FOLLOW_SYMLINKS (1 << 1)
+#define DIR_ITERATOR_DIRS_BEFORE (1 << 2)
 
 struct dir_iterator {
 	/* The current path: */
@@ -97,12 +106,13 @@ struct dir_iterator {
  * failure, return NULL and set errno accordingly.
  *
  * The iteration includes all paths under path, not including path
- * itself and not including "." or ".." entries.
+ * itself, "." or ".." entries and directories according to specified flags.
  *
  * Parameters are:
  *  - path is the starting directory. An internal copy will be made.
  *  - flags is a combination of the possible flags to initialize a
- *    dir-iterator or 0 for default behavior.
+ *    dir-iterator or 0 for default behavior which will ignore directory paths,
+ *    but will include the rest directory contents.
  */
 struct dir_iterator *dir_iterator_begin(const char *path, unsigned int flags);
 
@@ -110,6 +120,7 @@ struct dir_iterator *dir_iterator_begin(const char *path, unsigned int flags);
  * Advance the iterator to the first or next item and return ITER_OK.
  * If the iteration is exhausted, free the dir_iterator and any
  * resources associated with it and return ITER_DONE.
+ * On error, free dir_iterator memory and return ITER_ERROR.
  *
  * It is a bug to use iterator or call this function again after it
  * has returned ITER_DONE or ITER_ERROR (which may be returned iff
@@ -119,8 +130,7 @@ int dir_iterator_advance(struct dir_iterator *iterator);
 
 /*
  * End the iteration before it has been exhausted. Free the
- * dir_iterator and any associated resources and return ITER_DONE. On
- * error, free the dir_iterator and return ITER_ERROR.
+ * dir_iterator and any associated resources and return ITER_DONE.
  */
 int dir_iterator_abort(struct dir_iterator *iterator);
 
