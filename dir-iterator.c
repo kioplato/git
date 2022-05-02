@@ -47,6 +47,7 @@ enum {
 	OK,
 	FAIL_ENOENT,
 	FAIL_NOT_ENOENT,
+	FAIL_IGN_DIRS,
 };
 
 /*
@@ -124,12 +125,14 @@ static int pop_level(struct dir_iterator_int *iter)
  *
  * Return values:
  * OK on successful exposure of the provided entry.
+ * FAIL_IGN_DIR on failed exposure because entry is dir and flags don't allow it.
  * FAIL_ENOENT on failed exposure because entry does not exist.
  * FAIL_NOT_ENOENT on failed exposure because of errno other than ENOENT.
  */
-static int expose_entry(struct dir_iterator_int *iter, char *d_name)
+static int expose_entry(struct dir_iterator_int *iter, char *d_name, char *dir_state)
 {
 	int stat_err;
+	unsigned int DIRS_BEFORE = iter->flags & DIR_ITERATOR_DIRS_BEFORE;
 
 	strbuf_addch(&iter->base.path, '/');
 	strbuf_addstr(&iter->base.path, d_name);
@@ -144,6 +147,17 @@ static int expose_entry(struct dir_iterator_int *iter, char *d_name)
 		return FAIL_NOT_ENOENT;
 	} else if (stat_err && errno == ENOENT) {
 		return FAIL_ENOENT;
+	}
+
+	/*
+	 * We've got to check whether or not this is a directory. We need to
+	 * perform this check since the user could've requested to ignore
+	 * directory entries.
+	 */
+
+	if (S_ISDIR(iter->base.st.st_mode)) {
+		if (!DIRS_BEFORE && !strcmp(dir_state, "before"))
+			return FAIL_IGN_DIRS;
 	}
 
 	/*
@@ -220,14 +234,23 @@ int dir_iterator_advance(struct dir_iterator *dir_iterator)
 
 	/*
 	 * Successfully read entry from current directory level.
+	 * In case it's a directory, we need to check, before exposing it, if
+	 * it's allowed because of DIRS_BEFORE. In any case - allowed or not -
+	 * we must push the directory to the levels stack, so the next call will
+	 * read from it.
 	 */
 
-	expose_err = expose_entry(iter, dir_entry->d_name);
+	/*
+	 * 'expose_entry()' function needs to know whether
+	 * the exposure call is about DIRS_BEFORE or DIRS_AFTER.
+	 */
+
+	expose_err = expose_entry(iter, dir_entry->d_name, "before");
 
 	if (expose_err == FAIL_NOT_ENOENT && PEDANTIC)
 		goto error_out;
 
-	if (expose_err == OK)
+	if (expose_err == OK || expose_err == FAIL_IGN_DIRS)
 		push_level(iter);
 
 	if (expose_err != OK)

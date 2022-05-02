@@ -2237,7 +2237,7 @@ static struct ref_iterator *reflog_iterator_begin(struct ref_store *ref_store,
 
 	strbuf_addf(&sb, "%s/logs", gitdir);
 
-	diter = dir_iterator_begin(sb.buf, 0);
+	diter = dir_iterator_begin(sb.buf, DIR_ITERATOR_DIRS_BEFORE);
 	if (!diter) {
 		strbuf_release(&sb);
 		return empty_ref_iterator_begin();
