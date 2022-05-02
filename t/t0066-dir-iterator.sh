@@ -9,7 +9,7 @@ test_expect_success 'setup -- dir with a single file' '
 	mkdir dir1 &&
 	>dir1/a
 '
-test_expect_success 'iteration of dir with a file' '
+test_expect_success 'dirs-before of dir with a file' '
 	cat >expected-out <<-EOF &&
 	[f] (a) [a] ./dir1/a
 	EOF
@@ -21,7 +21,7 @@ test_expect_success 'iteration of dir with a file' '
 test_expect_success 'setup -- dir with a single dir' '
 	mkdir -p dir2/a
 '
-test_expect_success 'iteration of dir with a single dir' '
+test_expect_success 'dirs-before of dir with a single dir' '
 	cat >expected-out <<-EOF &&
 	[d] (a) [a] ./dir2/a
 	EOF
@@ -33,7 +33,7 @@ test_expect_success 'iteration of dir with a single dir' '
 test_expect_success POSIXPERM,SANITY 'setup -- dir w/ single dir w/o perms' '
 	mkdir -p dir3/a
 '
-test_expect_success POSIXPERM,SANITY 'iteration of dir w/ dir w/o perms' '
+test_expect_success POSIXPERM,SANITY 'dirs-before of dir w/ dir w/o perms' '
 	cat >expected-out <<-EOF &&
 	[d] (a) [a] ./dir3/a
 	EOF
@@ -45,7 +45,7 @@ test_expect_success POSIXPERM,SANITY 'iteration of dir w/ dir w/o perms' '
 
 	chmod 755 dir3/a
 '
-test_expect_success POSIXPERM,SANITY 'pedantic iteration of dir w/ dir w/o perms' '
+test_expect_success POSIXPERM,SANITY 'pedantic dirs-before of dir w/ dir w/o perms' '
 	cat >expected-out <<-EOF &&
 	[d] (a) [a] ./dir3/a
 	dir_iterator_advance failure: EACCES
@@ -67,7 +67,7 @@ test_expect_success 'setup -- dir w/ five files' '
 	>dir4/d &&
 	>dir4/e
 '
-test_expect_success 'iteration of dir w/ five files' '
+test_expect_success 'dirs-before of dir w/ five files' '
 	cat >expected-sorted-out <<-EOF &&
 	[f] (a) [a] ./dir4/a
 	[f] (b) [b] ./dir4/b
@@ -86,7 +86,7 @@ test_expect_success 'setup -- dir w/ dir w/ a file' '
 	mkdir -p dir5/a &&
 	>dir5/a/b
 '
-test_expect_success 'iteration of dir w/ dir w/ a file' '
+test_expect_success 'dirs-before of dir w/ dir w/ a file' '
 	cat >expected-out <<-EOF &&
 	[d] (a) [a] ./dir5/a
 	[f] (a/b) [b] ./dir5/a/b
@@ -100,7 +100,7 @@ test_expect_success 'setup -- dir w/ three nested dirs w/ file' '
 	mkdir -p dir6/a/b/c &&
 	>dir6/a/b/c/d
 '
-test_expect_success 'dir-iterator should list files in the correct order' '
+test_expect_success 'dirs-before of dir w/ three nested dirs w/ file' '
 	cat >expected-out <<-EOF &&
 	[d] (a) [a] ./dir6/a
 	[d] (a/b) [b] ./dir6/a/b
@@ -119,7 +119,7 @@ test_expect_success POSIXPERM,SANITY \
 	>dir7/a/b/c/d
 '
 test_expect_success POSIXPERM,SANITY \
-'iteration of dir w/ three nested dirs w/ file, second w/o perms' '
+'dirs-before of dir w/ three nested dirs w/ file, second w/o perms' '
 
 	cat >expected-out <<-EOF &&
 	[d] (a) [a] ./dir7/a
@@ -134,7 +134,7 @@ test_expect_success POSIXPERM,SANITY \
 	chmod 755 dir7/a/b
 '
 test_expect_success POSIXPERM,SANITY \
-'pedantic iteration of dir w/ three nested dirs w/ file, second w/o perms' '
+'pedantic dirs-before of dir w/ three nested dirs w/ file, second w/o perms' '
 
 	cat >expected-out <<-EOF &&
 	[d] (a) [a] ./dir7/a
@@ -156,7 +156,7 @@ test_expect_success 'setup -- dir w/ two dirs each w/ file' '
 	mkdir dir8/c &&
 	>dir8/c/d
 '
-test_expect_success 'iteration of dir w/ two dirs each w/ file' '
+test_expect_success 'dirs-before of dir w/ two dirs each w/ file' '
 	cat >expected-out1 <<-EOF &&
 	[d] (a) [a] ./dir8/a
 	[f] (a/b) [b] ./dir8/a/b
@@ -185,7 +185,7 @@ test_expect_success 'setup -- dir w/ two dirs, one w/ two and one w/ one files' 
 	>dir9/d/e
 '
 test_expect_success \
-'iteration of dir w/ two dirs, one w/ two and one w/ one files' '
+'dirs-before of dir w/ two dirs, one w/ two and one w/ one files' '
 
 	cat >expected-out1 <<-EOF &&
 	[d] (a) [a] ./dir9/a
@@ -231,7 +231,7 @@ test_expect_success 'setup -- dir w/ two nested dirs, each w/ file' '
 	mkdir dir10/a/c &&
 	>dir10/a/c/d
 '
-test_expect_success 'iteration of dir w/ two nested dirs, each w/ file' '
+test_expect_success 'dirs-before of dir w/ two nested dirs, each w/ file' '
 	cat >expected-out1 <<-EOF &&
 	[d] (a) [a] ./dir10/a
 	[f] (a/b) [b] ./dir10/a/b
@@ -262,7 +262,7 @@ test_expect_success 'setup -- dir w/ complex structure' '
 	>dir11/a/e &&
 	>dir11/d/e/d/a
 '
-test_expect_success 'dir-iterator should iterate through all files' '
+test_expect_success 'dirs-before of dir w/ complex structure' '
 	cat >expected-sorted-out <<-EOF &&
 	[d] (a) [a] ./dir11/a
 	[d] (a/b) [b] ./dir11/a/b
@@ -287,7 +287,7 @@ test_expect_success POSIXPERM,SANITY 'setup -- dir w/o perms' '
 	mkdir -p dir12/a &&
 	>dir12/a/b
 '
-test_expect_success POSIXPERM,SANITY 'iteration of root dir w/o perms' '
+test_expect_success POSIXPERM,SANITY 'dirs-before of root dir w/o perms' '
 	cat >expected-out <<-EOF &&
 	dir_iterator_begin failure: EACCES
 	EOF
@@ -299,7 +299,7 @@ test_expect_success POSIXPERM,SANITY 'iteration of root dir w/o perms' '
 
 	chmod 755 dir12
 '
-test_expect_success POSIXPERM,SANITY 'pedantic iteration of root dir w/o perms' '
+test_expect_success POSIXPERM,SANITY 'pedantic dirs-before of root dir w/o perms' '
 	cat >expected-out <<-EOF &&
 	dir_iterator_begin failure: EACCES
 	EOF
@@ -334,7 +334,9 @@ test_expect_success POSIXPERM,SANITY 'setup -- dir w/ dir w/o perms w/ file' '
 	mkdir -p dir13/a &&
 	>dir13/a/b
 '
-test_expect_success POSIXPERM,SANITY 'advance should not fail on errors by default' '
+test_expect_success POSIXPERM,SANITY \
+'dirs-before of dir w/ dir w/o perms w/ file' '
+
 	cat >expected-out <<-EOF &&
 	[d] (a) [a] ./dir13/a
 	EOF
@@ -346,7 +348,9 @@ test_expect_success POSIXPERM,SANITY 'advance should not fail on errors by defau
 
 	chmod 755 dir13/a
 '
-test_expect_success POSIXPERM,SANITY 'advance should fail on errors, w/ pedantic flag' '
+test_expect_success POSIXPERM,SANITY \
+'pedantic dirs-before of dir w/ dir w/o perms w/ file' '
+
 	cat >expected-out <<-EOF &&
 	[d] (a) [a] ./dir13/a
 	dir_iterator_advance failure: EACCES
@@ -360,14 +364,14 @@ test_expect_success POSIXPERM,SANITY 'advance should fail on errors, w/ pedantic
 	chmod 755 dir13/a
 '
 
-test_expect_success SYMLINKS 'setup -- dir w/ symlinks, w/o cycle' '
+test_expect_success SYMLINKS 'setup -- dir w/ symlinks w/o cycle' '
 	mkdir -p dir14/a &&
 	mkdir -p dir14/b/c &&
 	>dir14/a/d &&
 	ln -s d dir14/a/e &&
 	ln -s ../b dir14/a/f
 '
-test_expect_success SYMLINKS 'dir-iterator should not follow symlinks by default' '
+test_expect_success SYMLINKS 'dirs-before of dir w/ symlinks w/o cycle' '
 	cat >expected-sorted-out <<-EOF &&
 	[d] (a) [a] ./dir14/a
 	[d] (b) [b] ./dir14/b
@@ -382,7 +386,9 @@ test_expect_success SYMLINKS 'dir-iterator should not follow symlinks by default
 
 	test_cmp expected-sorted-out actual-sorted-out
 '
-test_expect_success SYMLINKS 'dir-iterator should follow symlinks w/ follow flag' '
+test_expect_success SYMLINKS \
+'follow-symlinks dirs-before of dir w/ symlinks w/o cycle' '
+
 	cat >expected-sorted-out <<-EOF &&
 	[d] (a) [a] ./dir14/a
 	[d] (a/f) [f] ./dir14/a/f
@@ -399,15 +405,14 @@ test_expect_success SYMLINKS 'dir-iterator should follow symlinks w/ follow flag
 	test_cmp expected-sorted-out actual-sorted-out
 '
 
-test_expect_success SYMLINKS 'setup -- dir w/ symlinks, w/ cycle' '
+test_expect_success SYMLINKS 'setup -- dir w/ symlinks w/ cycle' '
 	mkdir -p dir15/a/b &&
 	mkdir -p dir15/a/c &&
 	ln -s ../c dir15/a/b/d &&
 	ln -s ../ dir15/a/b/e &&
 	ln -s ../../ dir15/a/b/f
 '
-test_expect_success SYMLINKS 'iteration of dir w/ symlinks w/ cycle' '
-
+test_expect_success SYMLINKS 'dirs-before of dir w/ symlinks w/ cycle' '
 	cat >expected-sorted-out <<-EOF &&
 	[d] (a) [a] ./dir15/a
 	[d] (a/b) [b] ./dir15/a/b
@@ -423,7 +428,7 @@ test_expect_success SYMLINKS 'iteration of dir w/ symlinks w/ cycle' '
 	test_cmp expected-sorted-out actual-sorted-out
 '
 test_expect_success SYMLINKS \
-'pedantic follow-symlinks iteration of dir w/ symlinks w/ cycle' '
+'pedantic follow-symlinks dirs-before of dir w/ symlinks w/ cycle' '
 
 	cat >expected-tailed-out <<-EOF &&
 	dir_iterator_advance failure: ELOOP
