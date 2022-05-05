@@ -8,6 +8,8 @@
 #include "fsmonitor.h"
 #include "entry.h"
 #include "parallel-checkout.h"
+#include "iterator.h"
+#include "dir-iterator.h"
 
 static void create_directories(const char *path, int path_len,
 			       const struct checkout *state)
@@ -52,26 +54,21 @@ static void create_directories(const char *path, int path_len,
 
 static void remove_subtree(struct strbuf *path)
 {
-	DIR *dir = opendir(path->buf);
-	struct dirent *de;
-	int origlen = path->len;
+	unsigned int flags = DIR_ITERATOR_DIRS_AFTER;
+	struct dir_iterator *iter = NULL;
+	int ok;
 
-	if (!dir)
-		die_errno("cannot opendir '%s'", path->buf);
-	while ((de = readdir_skip_dot_and_dotdot(dir)) != NULL) {
-		struct stat st;
+	if (!(iter = dir_iterator_begin(path->buf, flags)))
+		die_errno("cannot open directory '%s'", path->buf);
 
-		strbuf_addch(path, '/');
-		strbuf_addstr(path, de->d_name);
-		if (lstat(path->buf, &st))
-			die_errno("cannot lstat '%s'", path->buf);
-		if (S_ISDIR(st.st_mode))
-			remove_subtree(path);
-		else if (unlink(path->buf))
-			die_errno("cannot unlink '%s'", path->buf);
-		strbuf_setlen(path, origlen);
+	while ((ok = dir_iterator_advance(iter)) == ITER_OK) {
+		if (remove(iter->path.buf))
+			die_errno("cannot remove '%s'", iter->path.buf);
 	}
-	closedir(dir);
+
+	if (ok != ITER_DONE)
+		die_errno("failed to iterate over directory '%s'", path->buf);
+
 	if (rmdir(path->buf))
 		die_errno("cannot rmdir '%s'", path->buf);
 }
