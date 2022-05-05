@@ -289,7 +289,7 @@ test_expect_success POSIXPERM,SANITY 'setup -- dir w/o perms' '
 '
 test_expect_success POSIXPERM,SANITY 'iteration of root dir w/o perms' '
 	cat >expected-out <<-EOF &&
-	dir_iterator_advance failure: EACCES
+	dir_iterator_begin failure: EACCES
 	EOF
 
 	chmod 0 dir12 &&
@@ -301,7 +301,7 @@ test_expect_success POSIXPERM,SANITY 'iteration of root dir w/o perms' '
 '
 test_expect_success POSIXPERM,SANITY 'pedantic iteration of root dir w/o perms' '
 	cat >expected-out <<-EOF &&
-	dir_iterator_advance failure: EACCES
+	dir_iterator_begin failure: EACCES
 	EOF
 
 	chmod 0 dir12 &&

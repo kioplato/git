@@ -181,10 +181,12 @@ int dir_iterator_advance(struct dir_iterator *dir_iterator)
 	if (activate_err == FAIL_NOT_ENOENT && PEDANTIC) {
 		goto error_out;
 	} else if (activate_err != OK) {
-		--iter->levels_nr;
+		/*
+		 * We activate the root level at `dir_iterator_begin()`.
+		 * Therefore, there isn't any case to run out of levels.
+		 */
 
-		if (iter->levels_nr == 0)  /* Failed to open root directory */
-			goto error_out;
+		--iter->levels_nr;
 
 		return dir_iterator_advance(dir_iterator);
 	}
@@ -292,6 +294,11 @@ struct dir_iterator *dir_iterator_begin(const char *path, unsigned int flags)
 
 	if (!push_level(iter)) {
 		saved_errno = ENOTDIR;
+		goto error_out;
+	}
+
+	if (activate_level(iter) != OK) {
+		saved_errno = errno;
 		goto error_out;
 	}
 
