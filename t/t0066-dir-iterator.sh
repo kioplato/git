@@ -63,9 +63,11 @@ test_expect_success 'begin should fail upon inexistent paths' '
 '
 
 test_expect_success 'begin should fail upon non directory paths' '
+	>some-file &&
+
 	echo "dir_iterator_begin failure: ENOTDIR" >expected-non-dir-output &&
 
-	test_must_fail test-tool dir-iterator ./dir/b >actual-non-dir-output &&
+	test_must_fail test-tool dir-iterator ./some-file >actual-non-dir-output &&
 
 	test_cmp expected-non-dir-output actual-non-dir-output
 '
