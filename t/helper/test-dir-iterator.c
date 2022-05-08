@@ -39,7 +39,7 @@ int cmd__dir_iterator(int argc, const char **argv)
 
 	if (!diter) {
 		printf("dir_iterator_begin failure: %s\n", error_name(errno));
-		exit(EXIT_FAILURE);
+		return EXIT_FAILURE;
 	}
 
 	while ((iter_status = dir_iterator_advance(diter)) == ITER_OK) {
@@ -58,8 +58,8 @@ int cmd__dir_iterator(int argc, const char **argv)
 
 	if (iter_status != ITER_DONE) {
 		printf("dir_iterator_advance failure\n");
-		return 1;
+		return EXIT_FAILURE;
 	}
 
-	return 0;
+	return EXIT_SUCCESS;
 }
