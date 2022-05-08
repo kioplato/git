@@ -62,8 +62,11 @@ static void remove_subtree(struct strbuf *path)
 		die_errno("cannot open directory '%s'", path->buf);
 
 	while ((ok = dir_iterator_advance(iter)) == ITER_OK) {
-		if (remove(iter->path.buf))
-			die_errno("cannot remove '%s'", iter->path.buf);
+		if (S_ISDIR(iter->st.st_mode)) {
+			if (rmdir(iter->path.buf))
+				die_errno("cannot rmdir '%s'", iter->path.buf);
+		} else if (unlink(iter->path.buf))
+			die_errno("cannot unlink '%s'", iter->path.buf);
 	}
 
 	if (ok != ITER_DONE)
