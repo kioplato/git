@@ -298,8 +298,10 @@ int dir_iterator_advance(struct dir_iterator *dir_iterator)
 			 * current `iter->base` and we need to set it up.
 			 */
 
-			if (pop_level(iter) == 0)
+			if (pop_level(iter) == 0) {
+				free(d_name);
 				return dir_iterator_abort(dir_iterator);
+			}
 
 			level = &iter->levels[iter->levels_nr - 1];
 			strbuf_setlen(&iter->base.path, level->prefix_len);
