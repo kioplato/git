@@ -96,37 +96,6 @@ test_expect_success 'iteration of dir w/ dir w/ a file' '
 	test_cmp expected-out actual-out
 '
 
-test_expect_success 'setup -- dir w/ complex structure' '
-	mkdir -p dir &&
-	mkdir -p dir/a/b/c/ &&
-	>dir/b &&
-	>dir/c &&
-	mkdir -p dir/d/e/d/ &&
-	>dir/a/b/c/d &&
-	>dir/a/e &&
-	>dir/d/e/d/a
-'
-test_expect_success 'dir-iterator should iterate through all files' '
-	cat >expected-sorted-out <<-EOF &&
-	[d] (a) [a] ./dir/a
-	[d] (a/b) [b] ./dir/a/b
-	[d] (a/b/c) [c] ./dir/a/b/c
-	[d] (d) [d] ./dir/d
-	[d] (d/e) [e] ./dir/d/e
-	[d] (d/e/d) [d] ./dir/d/e/d
-	[f] (a/b/c/d) [d] ./dir/a/b/c/d
-	[f] (a/e) [e] ./dir/a/e
-	[f] (b) [b] ./dir/b
-	[f] (c) [c] ./dir/c
-	[f] (d/e/d/a) [a] ./dir/d/e/d/a
-	EOF
-
-	test-tool dir-iterator ./dir >actual-out &&
-	sort actual-out >actual-sorted-out &&
-
-	test_cmp expected-sorted-out actual-sorted-out
-'
-
 test_expect_success 'setup -- dir w/ three nested dirs w/ file' '
 	mkdir -p dir2/a/b/c &&
 	>dir2/a/b/c/d
@@ -281,6 +250,37 @@ test_expect_success 'iteration of dir w/ two nested dirs, each w/ file' '
 		test_cmp expected-out1 actual-out ||
 		test_cmp expected-out2 actual-out
 	)
+'
+
+test_expect_success 'setup -- dir w/ complex structure' '
+	mkdir -p dir &&
+	mkdir -p dir/a/b/c/ &&
+	>dir/b &&
+	>dir/c &&
+	mkdir -p dir/d/e/d/ &&
+	>dir/a/b/c/d &&
+	>dir/a/e &&
+	>dir/d/e/d/a
+'
+test_expect_success 'dir-iterator should iterate through all files' '
+	cat >expected-sorted-out <<-EOF &&
+	[d] (a) [a] ./dir/a
+	[d] (a/b) [b] ./dir/a/b
+	[d] (a/b/c) [c] ./dir/a/b/c
+	[d] (d) [d] ./dir/d
+	[d] (d/e) [e] ./dir/d/e
+	[d] (d/e/d) [d] ./dir/d/e/d
+	[f] (a/b/c/d) [d] ./dir/a/b/c/d
+	[f] (a/e) [e] ./dir/a/e
+	[f] (b) [b] ./dir/b
+	[f] (c) [c] ./dir/c
+	[f] (d/e/d/a) [a] ./dir/d/e/d/a
+	EOF
+
+	test-tool dir-iterator ./dir >actual-out &&
+	sort actual-out >actual-sorted-out &&
+
+	test_cmp expected-sorted-out actual-sorted-out
 '
 
 test_expect_success POSIXPERM,SANITY 'setup -- dir w/o perms' '
