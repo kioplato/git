@@ -1,3 +1,5 @@
+#include "git-compat-util.h"
+#include <ftw.h>
 #include "cache.h"
 #include "blob.h"
 #include "object-store.h"
@@ -50,30 +52,50 @@ static void create_directories(const char *path, int path_len,
 	free(buf);
 }
 
+static int remove_entry(const char *fpath, const struct stat *sb,
+		int typeflag, struct FTW *ftwbuf)
+{
+	if (typeflag == FTW_NS)
+		die_errno("cannot lstat '%s'", fpath);
+
+	if (typeflag == FTW_F || typeflag == FTW_SL || typeflag == FTW_SLN) {
+		if (unlink(fpath))
+			die_errno("cannot unlink '%s'", fpath);
+	}
+	else if (typeflag == FTW_DNR || typeflag == FTW_DP) {
+		if (rmdir(fpath))
+			die_errno("cannot rmdir '%s'", fpath);
+	}
+
+	return 0;
+}
+
 static void remove_subtree(struct strbuf *path)
 {
-	DIR *dir = opendir(path->buf);
-	struct dirent *de;
-	int origlen = path->len;
+	nftw(path->buf, remove_entry, 10, FTW_DEPTH | FTW_PHYS);
 
-	if (!dir)
-		die_errno("cannot opendir '%s'", path->buf);
-	while ((de = readdir_skip_dot_and_dotdot(dir)) != NULL) {
-		struct stat st;
+	//DIR *dir = opendir(path->buf);
+	//struct dirent *de;
+	//int origlen = path->len;
 
-		strbuf_addch(path, '/');
-		strbuf_addstr(path, de->d_name);
-		if (lstat(path->buf, &st))
-			die_errno("cannot lstat '%s'", path->buf);
-		if (S_ISDIR(st.st_mode))
-			remove_subtree(path);
-		else if (unlink(path->buf))
-			die_errno("cannot unlink '%s'", path->buf);
-		strbuf_setlen(path, origlen);
-	}
-	closedir(dir);
-	if (rmdir(path->buf))
-		die_errno("cannot rmdir '%s'", path->buf);
+	//if (!dir)
+	//	die_errno("cannot opendir '%s'", path->buf);
+	//while ((de = readdir_skip_dot_and_dotdot(dir)) != NULL) {
+	//	struct stat st;
+
+	//	strbuf_addch(path, '/');
+	//	strbuf_addstr(path, de->d_name);
+	//	if (lstat(path->buf, &st))
+	//		die_errno("cannot lstat '%s'", path->buf);
+	//	if (S_ISDIR(st.st_mode))
+	//		remove_subtree(path);
+	//	else if (unlink(path->buf))
+	//		die_errno("cannot unlink '%s'", path->buf);
+	//	strbuf_setlen(path, origlen);
+	//}
+	//closedir(dir);
+	//if (rmdir(path->buf))
+	//	die_errno("cannot rmdir '%s'", path->buf);
 }
 
 static int create_file(const char *path, unsigned int mode)
